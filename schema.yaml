@@ -1,0 +1,299 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: https://schema.omnius.com/information-extraction/2.0/schema.json
+
+title: omni:us Information Extraction Format JSON Schema v2.0
+description: |+
+  This schema defines a format intended to represent data in the context of
+  automatic or semi-automatic information extraction. An information extraction
+  task is defined as a process that takes as input some source, generally
+  unstructured document(s), and produces a predefined set of structured and
+  possibly normalized data extracted from the source.
+
+  The schema is designed to allow representing both ground truth and
+  predictions, such that it can be used for development, evaluation and
+  production systems. The kind of information that can be represented are: any
+  number of single-value fields and groups/lists of fields and nested
+  groups/lists. A field can correspond to the output of a classification task
+  or some selection and normalization of part of the source. A multi-label
+  classification task would be represented as a list. Groups and lists can be
+  used to represent the natural structure of the desired information to 
+  extract.
+
+type: object
+properties:
+  $schema:
+    type: string
+  metadata:
+    description: Section for including any kind of metadata.
+    type: object
+    properties:
+      project:
+        description: Used to identify all similar extractions, e.g. name or id
+          of a project.
+        type: string
+      sources:
+        description: Used to identify the source(s) that the extraction
+          corresponds to, e.g. id of submission or document.
+        type: array
+        items:
+          type: string
+        minItems: 1
+    additionalProperties: true
+  confidence:
+    description: Global prediction confidence accounting for all extracted information.
+    $ref: '#/definitions/confidence-type'
+  elements:
+    $ref: '#/definitions/elements-type'
+required:
+- elements
+additionalProperties: false
+
+definitions:
+
+  elements-type:
+    description: Any number of fields, groups or lists of extracted information.
+    type: array
+    items:
+      oneOf:
+      - $ref: '#/definitions/field-type'
+      - $ref: '#/definitions/group-type'
+      - $ref: '#/definitions/list-type'
+
+  anonymous-field-type:
+    description: An anonymous piece of extracted information.
+    type: object
+    properties: &field-properties
+      value:
+        description: Final normalized/post-processed value of the field.
+        $ref: '#/definitions/value-type'
+      confidence:
+        description: Confidence of the field.
+        $ref: '#/definitions/confidence-type'
+      confirmed:
+        $ref: '#/definitions/confirmed-type'
+      setBy:
+        $ref: '#/definitions/set-by-type'
+      evidence:
+        description: References to the evidence that led to populating the
+          field. Multiple occurrences in the source should be items at this
+          level.
+        type: array
+        items:
+          $ref: '#/definitions/boxes-type'
+        minItems: 1
+    patternProperties: &field-pattern-properties
+      ^value.+:
+        description: Value of the field at some intermediate step.
+        $ref: '#/definitions/value-type'
+      ^confidence.+:
+        description: Confidence of the field at some intermediate step.
+        $ref: '#/definitions/confidence-type'
+    required:
+    - value
+    additionalProperties: false
+
+  field-type:
+    description: A named piece of extracted information.
+    type: object
+    properties:
+      <<: *field-properties
+      type:
+        type: string
+        enum:
+        - field
+      id:
+        description: Identifier or name of the field.
+        $ref: '#/definitions/id-type'
+      value:
+        oneOf:
+        - description: Final normalized/post-processed value of the field.
+          $ref: '#/definitions/value-type'
+        - description: Multiple accepted ground truth field values.
+          $ref: '#/definitions/multi-value-type'
+    patternProperties:
+      <<: *field-pattern-properties
+    required:
+    - id
+    - value
+    additionalProperties: false
+
+  anonymous-group-type:
+    description: An anonymous group of extracted information.
+    type: object
+    properties: &group-properties
+      type:
+        type: string
+        enum:
+        - group
+      confidence:
+        description: Confidence of group accounting for all elements and descendants.
+        $ref: '#/definitions/confidence-type'
+      elements:
+        $ref: '#/definitions/elements-type'
+      setBy:
+        $ref: '#/definitions/set-by-type'
+    required:
+    - elements
+    additionalProperties: false
+
+  group-type:
+    description: A group of extracted information.
+    type: object
+    properties:
+      <<: *group-properties
+      id:
+        description: Identifier or name of the group.
+        $ref: '#/definitions/id-type'
+    required:
+    - id
+    - elements
+    additionalProperties: false
+
+  list-type:
+    description: A list of extracted information.
+    type: object
+    properties:
+      type:
+        type: string
+        enum:
+        - list
+      id:
+        description: Identifier or name of the list.
+        $ref: '#/definitions/id-type'
+      confidence:
+        description: Confidence of list accounting for all items and descendants.
+        $ref: '#/definitions/confidence-type'
+      items:
+        description: Any number children of type field, group or list.
+        type: array
+        items:
+          oneOf:
+          - $ref: '#/definitions/anonymous-field-type'
+          - $ref: '#/definitions/anonymous-group-type'
+          - $ref: '#/definitions/field-type'
+          - $ref: '#/definitions/group-type'
+          - $ref: '#/definitions/list-type'
+      setBy:
+        $ref: '#/definitions/set-by-type'
+    required:
+    - id
+    - items
+    additionalProperties: false
+
+  id-type:
+    oneOf:
+    - type: integer
+      minimum: 0
+    - type: string
+      minLength: 1
+
+  set-by-type:
+    description: Identifier of process or person that created the element.
+    type: string
+    minLength: 1
+
+  confidence-type:
+    type: number
+    minimum: 0
+    maximum: 1
+
+  confirmed-type:
+    description: Whether a person verified value for correctness.
+    type: boolean
+
+  value-type:
+    type:
+    - 'string'
+    - 'number'
+    - 'boolean'
+    - 'null'
+
+  multi-value-type:
+    type: array
+    items:
+      $ref: '#/definitions/value-type'
+    minItems: 2
+    uniqueItems: true
+
+  norm-coord-type:
+    type: number
+    minimum: 0
+    maximum: 1
+
+  boxes-type:
+    description: |+
+      One or more bounding boxes in a possibly multi-page document. Multiple
+      bounding boxes are intended only for a single occurrence, for example in a
+      document an occurrence that is split across two text lines.
+
+      The coordinates of the bounding boxes are normalized to the range [0,1].
+      The origin (0,0) of the coordinates system is at the top-left corner of
+      the document page and the y-axis increasing downwards. Thus, the
+      bottom-right corner of the page corresponds to point (1,1).
+
+    type: object
+    properties:
+      type:
+        type: string
+        enum:
+        - boxes
+      source:
+        description: Index of source in the metadata (zero-based). Only
+          necessary when there is more than one source.
+      boxes:
+        type: array
+        items:
+          $ref: '#/definitions/box-type'
+        minItems: 1
+      id:
+        description: Identifier of evidence.
+        $ref: '#/definitions/id-type'
+      value:
+        description: Value for the entire evidence.
+        $ref: '#/definitions/value-type'
+      confidence:
+        description: Confidence of the evidence.
+        $ref: '#/definitions/confidence-type'
+      confirmed:
+        $ref: '#/definitions/confirmed-type'
+    required:
+    - boxes
+    additionalProperties: false
+
+  box-type:
+    type: object
+    properties:
+      page:
+        description: Number (zero-based) or identifier of the page where the
+          bounding box is located.
+        oneOf:
+        - type: integer
+          minimum: 0
+        - type: string
+          minLength: 1
+      x:
+        description: Top-left X coordinate of the bounding box.
+        $ref: '#/definitions/norm-coord-type'
+      y:
+        description: Top-left Y coordinate of the bounding box.
+        $ref: '#/definitions/norm-coord-type'
+      width:
+        description: Width of the bounding box.
+        $ref: '#/definitions/norm-coord-type'
+      height:
+        description: Height of the bounding box.
+        $ref: '#/definitions/norm-coord-type'
+      value:
+        description: Content of the box.
+        $ref: '#/definitions/value-type'
+      confidence:
+        description: Confidence of the content of the box.
+        $ref: '#/definitions/confidence-type'
+    required:
+    - page
+    - x
+    - y
+    - width
+    - height
+    additionalProperties: false
+
