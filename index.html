@@ -16,7 +16,7 @@
         h1 {
             color: #333;
         }
-        a {
+        .button {
             display: inline-block;
             margin: 10px;
             padding: 15px;
@@ -25,17 +25,20 @@
             color: white;
             text-decoration: none;
             border-radius: 5px;
+            transition: background-color 0.3s ease;
         }
-        a:hover {
+        .button:hover {
             background-color: #45a049;
         }
     </style>
 </head>
 <body>
-    <h1>Welcome to Omnius Schema Files</h1>
-    <p>Please click the links below to download the schema files:</p>
-    <a href="https://schema.omnius.com/schema.json" download>Download schema.json</a>
-    <a href="https://schema.omnius.com/schema.yaml" download>Download schema.yaml</a>
+    <h1>Omnius Schema Files</h1>
+    <p>Click the buttons below to view the schema files:</p>
+
+    <a href="https://schema.omnius.com/$web/schema.json" class="button">schema.json</a>
+    <a href="https://schema.omnius.com/$web/schema.yaml" class="button">schema.yaml</a>
+    
 </body>
 </html>
 
